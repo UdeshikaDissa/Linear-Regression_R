@@ -1,0 +1,387 @@
+---
+title: "MATH1324 Assignment 3"
+author: "Udeshika Dissanayake (S3400652)"
+date: "May 27, 2018"
+output:
+  html_document: default
+  word_document: default
+  pdf_document: default
+editor_options:
+  chunk_output_type: console
+---
+<style>
+body {
+text-align: justify}
+</style>
+```{r setup, include=FALSE,}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+$~$
+
+### Problem Statement
+
+The objective of this study is to determine whether a human body circumference measurement could be used as a general indicator for human body fat percentage. A such body circumference measurement could then be used to predict the body fat percentage by establishing a simple linear formula. The study will further assess how well this linear formula perform to estimate the body fat percentage by comparing the predicted values against the real values. All the statistical computations have been performed in 'R Studio' package in this study. 
+
+A data-set of 252 people (160 male and 92 female) with their body fat percentages (Brozek method) and ten different body circumference measurements have been used in this study. The Source for the data-set:
+Roger W. Johnson. March 1996. Fitting Percentage of Body Fat to Simple Body Measurements. Journal of Statistics Education, Volume 4, Number 1.
+
+<!--
+### Load Packages
+
+Below packages and libraries in R have been used in for this study.
+-->
+```{r include=FALSE}
+installed.packages("mosaic")
+installed.packages("rmarkdown")
+installed.packages("kableExtra")
+installed.packages("ggplot2")
+installed.packages("car")
+
+library(mosaic)
+library(rmarkdown)
+library(knitr)
+library(kableExtra)
+library(car)
+library(ggplot2)
+
+
+```
+
+
+### Data Preparation
+
+The data-set has been loaded in to R Studio and the outlier has been removed following the ranges, lower outliers < Q1-1.5 x IQR and  
+upper outliers < Q3+1.5 x IQR. The R packages "mosaic", "r markdown","kableExtra", "car" and "ggplot2" have been installed. The frequency distribution after the outlier removal is, 
+
+```{r message=FALSE, warning=FALSE,comment=NA, include=FALSE}
+body<-read.csv(file="C:/Users/udesh/Stat/body1.csv")
+body$Sex<-factor(body$Sex, levels=c(1,0),labels=c("male","female")) #Covert numeric variable to factor
+tally(~Sex,data=body,margins=TRUE) #Frequency distribution for checking the acuracy of the imported data
+
+```
+
+```{r, ,comment=NA,echo=FALSE}
+tally(~Sex,data=body,margins=TRUE) #Frequency distribution for checking the acuracy of the imported data
+```
+
+
+
+### Part 1: Testing whether the mean body fat percentage for male and female are the same
+
+Below code calculates the favorite descriptive statistics (i.e. mean, median, standard deviation, first and third quartile, minimum & maximum values, and number) of the body fat percentage for both male and female separately.
+
+
+```{r Summary_stat,comment=NA}
+favstats(~BFP_Brozek|Sex,data=body)#Summary Statistics of body fat percentage by sex
+```
+
+The difference between the mean values of male and female body fat percentages is, 18.482 - 18.729 = -0.247. The mean of the female body fat percentage is slightly higher than that of the male. It is worth performing two-sample t-test to determine whether this difference is statistically significant to consider. 
+
+
+```{r  echo=FALSE,comment=NA,fig.align="center",out.height=700,out.width=300}
+boxplot(BFP_Brozek~Sex,data=body)#creating boxplot to compare body fat%
+
+```
+
+
+
+####Two-sample T-test
+
+The two-sample t-test is a powerful method to compare the means of two data populations if both follow the normal probability distribution. Further, the data points should be continuous, have equal variance, and independent of each other to qualify for this test.    
+
+
+####Testing the assumption for Two-sample T-test
+
+It is obvious that the male and female measurement are inherently independent. 
+
+By visually checking data placement in the Q-Q plot, the normality of the populations can be validated. Despite the data set is fairly large ( > 30 point), Q-Q plot has been drawn for male and female body fat percentages as below: 
+
+```{r,echo=FALSE, results='hide',fig.keep='all',comment=NA,fig.align="center",out.height=400,out.width=400}
+body_male<-subset(body,subset=(Sex=="male")) #Createing a subset of male for analysis
+body_female<-subset(body,subset=(Sex=="female")) #Createing a subset of female for analysis
+par(mfrow=c(1,2)) 
+
+qqPlot(body_male$BFP_Brozek, dist="norm")
+qqPlot(body_female$BFP_Brozek, dist="norm")
+```
+
+As can be seen, the data points fall within the dashed lines that correspond to 95% CI for the normal quantiles. This proves that the two populations are normally distributed, hence qualify for two-sample t-test.  
+
+By using the p-value from the Levene's test, the variances of the two population could be tested for equality. 
+
+```{r}
+leveneTest(BFP_Brozek~Sex,data=body)
+```
+
+As can be seen above, the p-value for the Levene's test of equal variance for body fat percentage between males and females is p = 0.545. Since, p > 0.05, it could be assumed the variances are equal in above groups. 
+
+
+
+####Hypothesis Tested
+
+For comparing two means of the population groups, the basic null hypothesis is that the means are equal, whereas the alternative hypothesis is that the means are not equal,
+
+$$H_0: \mu_1-\mu_2 = 0$$
+$$H_A: \mu_1-\mu_2 \neq 0$$
+where $\mu_1$ and $\mu_2$ refer to the population means of male (group 1) and female (group 2) respectively.
+
+
+
+####Two-sample t-test - Assuming Equal Variance and a two-sided hypothesis test
+
+Below R code performs the two-sample t-test for male and female body fat percentages assuming the variances are equal and two-sided.
+
+```{r,comment=NA}
+t.test(BFP_Brozek~Sex,data=body, var.equal=TRUE, alternative="two.sided")
+```
+
+Following the p-value method, p = 0.803 > $\alpha$ = 0.05, the null hypothesis $H_0$ is fail to be rejected. This means there was not a statistically significant difference between the means. 
+
+Also, it is observed that $H_0$ = 0 is getting captured by the 95% confidence interval, 95% CI[-2.198 1.704]. Once again this suggests that there was no statistically significant difference between the means. In other words it can be statistically concluded that the means of body fat percentage for male and female are the same.
+
+
+
+### Part 2: Estimating 99% confidence interval for the mean body fat percentage in the popolation
+
+The degree of uncertainty associated with fairly limited sample representing a large population can be assessed and quantified through the concept of confidence interval. Using the current sample data, it derives an interval, in to which the  population parameters will keep on falling with percentage confidence if the random sampling procedure is repeatedly performed. 
+
+It is statistically conclusive from Part 1 study, that the male and female do have quite a similar distribution of body fat percentage, hence both male and female body fat percentage data samples could assumed to be same and could be treated equally for future assessments. 
+
+####Summary Statistics of body fat percentage for the Data set
+
+The favorite descriptive statistics are as follow, considering both male and female together:
+
+```{r,comment=NA}
+favstats(~BFP_Brozek,data=body) #Summary Statistics of body fat percentage for the Sample
+```
+
+
+####Assumptions for CI Assessments
+
+In general, in order to perform CI assessment, the two population should have the same variance (i.e. homogeniarity of variance), populations should be normally distributed, and they should be independent. Each of these has been verified under the Part 1 study for the male and female. This means, if both male and female data points are combined, it should also be normally distributed, hence could safely perform the CI formula.  
+
+Further, since the data-set is fairly large (n > 30), it is well know that the CI formula works quite well even without normality assumption or normality checking.
+
+####Calculating 99% Confidence Interval
+
+Below R code calculates the 99% CI for the subjective data-set: 
+
+```{r,comment=NA}
+confint(t.test(~BFP_Brozek,data=body,conf.level=0.99))
+```
+
+It is 99% confident that mean body fat percentage of random sampled of human would fall within the range of [17.342 19.796].
+
+
+### Part 3: Testing whether the average body fat percentage is less than 12.5
+
+The one-sample t-test can be used to test whether there is enough evidence taken from a sample mean to suggest that the population mean is different to a assumed value under null hypothesis. The general assumptions used in for this method are data are normally distributed and the population standard deviation is unknown. These assumptions are reasonably proved in previous sections for body fat percentage data.
+
+
+
+####Hypothesis Tested 
+
+The null and alternative hypothesis are mentioned below for this study:
+
+$$H_0: \mu \ge 12.5$$
+$$H_A: \mu < 12.5$$
+
+
+
+####The one-sample t-test (lower-tailed hypothesis test)
+
+Below R code calculates the parameters for one-sample t-test analysis, 
+
+```{r,comment=NA}
+round(favstats(~BFP_Brozek,data=body),2)
+t.test(~BFP_Brozek,data=body, mu=12.5, alternative="less")
+```
+
+
+As can be seen the 95% CI of the mean body fat percentage is [-Inf 19.349]. This means the mean value in the null hypothesis ($H_0: \mu \ge 12.5$) is getting captured (at least partially) by CI. This concludes that the results of the Hypothesis test are not statistically significant, hence fail to reject the null hypothesis. 
+
+Also, using the p-value, since  p = 1 > $\alpha$, it is conclusive that null hypothesis is failed to be rejected. 
+
+This means the researches belief of average body fat percentage is less than 12.5 can not be supported with statistical significance.
+      
+<P style="page-break-before: always">
+### Part 4: Finding the single best predictor of body fat percentage using the body circumference data 
+
+The simple linear regression model is used in this section to determine the correlation between a predictor variable (X - any body circumference measurement) and the dependent variable (Y - body fat percentage). 
+
+$$Y = \alpha + \beta X + \epsilon,$$
+
+where $\alpha$ is the intercept, $\beta$ is the slope, and $\epsilon$ is the random error with zero mean. The real data points are tested for best fit for linear regression model. The linear regression model needs below assumptions on the data-set to be true in order to maintain the integrity and validity of the model,
+
+* Independence<!-- (check research design)-->    
+* Linearity <!--Check Scatter plot-->  
+* Normality of residuals <!--check after models fitted-->  
+* Homoscedasticity <!--check after model is fitted)-->  
+
+Each of these assumptions will be tested and validated for the best fit model in a later section in this report. 
+
+####Hypothesis Tested 
+
+Below are the null and alternative hypothesis for the linear regression model, respectively:
+
+$H_0$: The data do not fit the linear regression model  
+$H_A$: The data fit the linear regression model  
+
+
+####Linear Regression is fitted using lm() function
+
+One body circumference measurement is randomly picked (Abdomen) and using below R code, the linear regression model curve is derived through estimating respective $\alpha$ and $\beta$ values.  
+
+```{r,comment=NA }
+bfpAbdomenmodel <- lm(BFP_Brozek~Abdomen,data = body)#Linear Regression is fitted using lm() function
+msummary(bfpAbdomenmodel)
+```
+The regression model is $Y = -38.938 + 0.626X$
+
+By observing the p-values for F-statistic and compare them against the 99% significant level (0.01), it could be concluded that there is statistically significant evidence to reject $H_0$. In other words, the relationship between abdomen measurement and body fat percentage could effectively be modeled with linear regression.  
+
+Since, the objective of this study is to find the best single predictor for estimating body fat percentage, it is essential to model each body circumference measurement against the body fat percentage. 
+
+####Linear Regression models for each body circumfenrece measurement against the body fat percentage
+
+Visually inspecting the linearity between variables though the scatter plot is a highly effective way of identifying possible linear relationships among the variables. Below scatter plot matrix demonstrates the relationship between each variable in the data-set.
+
+```{r,comment=NA,out.height=700,out.width=700,fig.align="center",echo=FALSE}
+pairs(~BFP_Brozek+Neck+Chest+Abdomen+Hip+Thigh+Knee+Ankle+Biceps+Forearm+Wrist,data=body,pch=1)#step1 exploring relationship-scatter Matrix
+```
+
+As can be seen in the first column (i.e. scatter plot against the body fat percentage) the Abdomen measurement seems to possess the best linearity due to its narrowness of the cloud. 
+
+```{r, include=FALSE}
+#Step 2Linear Regression is fitted using lm() function
+bfpNeckmodel <- lm(BFP_Brozek~Neck,data = body)
+bfpChestmodel <- lm(BFP_Brozek~Chest,data = body)
+bfpAbdomenmodel <- lm(BFP_Brozek~Abdomen,data = body)
+bfpHipmodel <- lm(BFP_Brozek~Hip,data = body)
+bfpThighmodel <- lm(BFP_Brozek~Thigh,data = body)
+bfpKneemodel <- lm(BFP_Brozek~Knee,data = body)
+bfpAnklemodel <- lm(BFP_Brozek~Ankle,data = body)
+bfpBicepsmodel <- lm(BFP_Brozek~Biceps,data = body)
+bfpForearmmodel <- lm(BFP_Brozek~Forearm,data = body)
+bfpWristmodel <- lm(BFP_Brozek~Wrist,data = body)
+
+```
+
+```{r, include=FALSE}
+msummary(bfpNeckmodel)
+msummary(bfpChestmodel)
+msummary(bfpAbdomenmodel)
+msummary(bfpHipmodel)
+msummary(bfpThighmodel)
+msummary(bfpKneemodel)
+msummary(bfpAnklemodel)
+msummary(bfpBicepsmodel)
+msummary(bfpForearmmodel)
+msummary(bfpWristmodel)
+```
+
+
+```{r, include=FALSE}
+confint(bfpNeckmodel)# 95% CI for the fitted line
+confint(bfpChestmodel)
+confint(bfpAbdomenmodel)
+confint(bfpHipmodel)
+confint(bfpThighmodel)
+confint(bfpKneemodel)
+confint(bfpAnklemodel)
+confint(bfpBicepsmodel)
+confint(bfpForearmmodel)
+confint(bfpWristmodel)
+```
+
+Additionally, using lm() function in R for each body circumference measurement (similar to the example shown for Abdomen measurement in above), linear regression model parameters have been obtained and shown in below summary matrix.
+
+By considering the $R^2$ (goodness of fit for linear regression) value for each, the best single predictor for estimating the body fat percentage could be selected. The largest $R^2$ is evident for Abdomen with 0.642 is selected to be the best predictor. Alternatively, the F-statistic values could also be used in determining the best linear predictor. The high F-statistic value also suggests that the data does not support the null hypothesis.    
+
+
+```{r,  echo=FALSE, message=FALSE, warning=FALSE,comment=NA}
+book3<-read.csv(file="C:/Users/udesh/Stat/Book3.csv")
+print(book3)
+
+```
+
+
+####Hypothesis testing of $\alpha$ and $\beta$ for Abdomen to Body fat relationship.
+To test the statistical significance of the intercept and slop for the linear relationship between abdomen measurement and body fat percentage, below null and alternative hypothesis are stated:
+
+$H_0: \alpha = 0$, $H_A: \alpha \neq 0$  
+$H_0: \beta = 0$, $H_A: \beta \neq 0$  
+
+The 95% CI ranges are obtained using below R code:
+
+```{r,comment=NA}
+confint(bfpAbdomenmodel)#95% CI for the fitted line
+```
+
+As the 95% CI for $\alpha$ is [-44.51 -33.367] and it is clear that $H_0: \alpha = 0$ is not getting captured by 95% CI range, hence the results are statistically significant to reject $H_0$.
+
+Similarly, as the 95% CI for $\beta$ is [0.566 0.687] and it is clear that $H_0: \beta = 0$ is not getting captured by 95% CI range, hence the results are statistically significant to reject $H_0$. 
+
+####Visualising the relationship 
+
+Below R code plots the real data points and the linear regression model with some confident interval regions:
+
+```{r ,comment=NA,fig.align="center",out.height=400,out.width=400}
+xyplot(BFP_Brozek~Abdomen,data = body,ylab="BFP_Brozek",xlab="Abdomen",panel=panel.lmbands)
+```
+
+The blue line is the line of best fit for the linear regression. The green bands represent the 95% CI of the body fat percentage mean readings for the regression line. The pink outer lines are the prediction intervals, where the  95% of the data will fall assuming the residuals are normally distributed.
+
+####Validating the assumptions
+The assumptions of independence and linearity have been validated for the data-set in the previous sections. 
+
+The residual value for each data point represent the deviation of the real data from the linear regression model. The existence of the normality of the residuals is important factor in healthy linear regression model.  Below R code assess the normality of the residual by plotting the Q-Q plot for residuals:
+  
+<!--
+```{r ,fig.width=4, fig.height=3,comment=NA,fig.align="center"}
+xyplot(BFP_Brozek~Abdomen,data = body, ylab ="BFP_Brozek",xlab="Abdomen")
+```
+-->
+
+```{r, results='hide',fig.keep='all',message=FALSE, warning=FALSE,results='hide',fig.align="center",,out.height=400,out.width=400}
+qqPlot(bfpAbdomenmodel$residuals,dist="norm") #plot to check the normality of the residuals
+```
+The plot above suggests there are no major deviations from normality. It would be safe to assume the residuals are at least approximately normally distributed. 
+
+The Homoscedasticity is related to the assumption of homogeneity of variance for the two-sample t-test. By plotting the scatter plot for Predicted/Fitted values on the x-axis and the residual values in y-axis, the homoscedasticity for a given regression model can be assessed. Below is the R code for such scatter plot:   
+
+ <!--Homoscedasticity-check after model is fitted)--> 
+```{r, results='hide',fig.keep='all',message=FALSE, warning=FALSE,results='hide',fig.align="center",out.height=400,out.width=400}
+mplot(bfpAbdomenmodel, 1) #plot to check the homoscedasticity, or constant variance
+```
+
+As can be seen in the plot the, the residual value remains the same despite the predictor move across the x-axis. This says the Homoscedasticity assumption used in for this regression model is true and valid.
+
+####Conclusion
+
+This analysis has used the body fat percentage data-set of 252 male and female and ten of their key body circumference measurements. The first phase of the study proved that the mean body fat percentages of male and female are statistically close enough to treat them as same. In the second phase of the study, the best predictor for the body fat percentage was identified by comparing the linear regression models of body circumference measurements and body fat percentage in the data-set. The bivariate relationships between body fat percentage and body circumference measurement were inspected using the scatter plot matrix. The 'Abdomen' measurement was selected as the best predictor by comparing the $R^2$ and "F-stat" of each regression models. Using the best predictor, the human body fat percentage could be estimated by the linear regression equation of, $$ Body Fat Percentage = -38.938 + 0.626 \times Abdomen$$ The positive slope for Abdomen was statistically significant, $\beta$= 0.626, and the F-stat values strongly supported the obtained linear regression model. Finally, the visual inspection of the real data points against the curve of linear regression model was utilized to estimate the validity of the regression model. Also the analysis and inspection of residuals supports the normality and homoscedasticity of the data, which further confirms the validity of the assumptions that have been taken in the linear regression modeling.   
+
+
+<!--
+
+```{r}
+mplot(bfpNeckmodel, 1)
+mplot(bfpChestmodel, 1)
+mplot(bfpAbdomenmodel, 1)
+mplot(bfpHipmodel, 1)
+mplot(bfpKneemodel, 1)
+mplot(bfpAnklemodel, 1)
+mplot(bfpBicepsmodel, 1)
+mplot(bfpForearmmodel, 1)
+mplot(bfpWristmodel, 1)
+mplot(bfpNeckmodel, 1)
+
+
+```
+
+```{r, fig.width=5, fig.height=5,results='hide',fig.keep='all',message=FALSE, warning=FALSE,results='hide',fig.align="center"}
+qqPlot(bfpChestmodel$residuals,dist="norm") #plot to check the normality of the residuals
+```
+
+-->
